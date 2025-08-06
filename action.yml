@@ -1,0 +1,42 @@
+name: 'ClocSVG'
+description: 'Generate a lines-of-code SVG and optionally publish to GitHub Pages'
+
+inputs:
+  path:
+    description: 'Path to analyze'
+    required: false
+    default: '.'
+
+  output:
+    description: 'Output SVG file path'
+    required: false
+    default: 'dist/loc.svg'
+
+  publish:
+    description: 'Whether to deploy the SVG to GitHub Pages'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install cloc
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y cloc jq
+
+    - name: Run cloc and generate SVG
+      shell: bash
+      run: |
+        mkdir -p $(dirname "${{ inputs.output }}")
+        cloc ${{ inputs.path }} --json --out=cloc.json
+        TOTAL=$(jq '.SUM.code' cloc.json)
+        echo '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40">
+          <text x="10" y="25" font-size="16">Lines of Code: '"$TOTAL"'</text>
+        </svg>' > ${{ inputs.output }}
+
+    - name: Deploy to GitHub Pages (optional)
+      if: ${{ inputs.publish == 'true' }}
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ env.GITHUB_TOKEN }}
+        publish_dir: $(dirname "${{ inputs.output }}")
