@@ -15,7 +15,7 @@ inputs:
   publish:
     description: 'Whether to deploy the SVG to GitHub Pages'
     required: false
-    default: 'false'
+    default: ''
 
 runs:
   using: 'composite'
@@ -43,8 +43,8 @@ runs:
           !dist/**/*.md
 
     - name: Deploy to GitHub Pages (optional)
-      if: ${{ inputs.publish == 'true' }}
+      if: ${{ inputs.publish != '' }}
       uses: peaceiris/actions-gh-pages@v3
       with:
-        github_token: ${{ env.GITHUB_TOKEN }}
+        github_token: ${{ inputs.publish }}
         publish_dir: ./dist
