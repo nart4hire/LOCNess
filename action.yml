@@ -1,4 +1,4 @@
-name: 'ClocSVG'
+name: 'LocNess'
 description: 'Generate a lines-of-code SVG and optionally publish to GitHub Pages'
 
 inputs:
@@ -10,7 +10,7 @@ inputs:
   output:
     description: 'Output SVG file path'
     required: false
-    default: 'dist/loc.svg'
+    default: 'dist/docs/loc.svg'
 
   publish:
     description: 'Whether to deploy the SVG to GitHub Pages'
@@ -38,11 +38,11 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: SVG
-        path: dist/loc.svg
+        path: dist/docs/loc.svg
 
     - name: Deploy to GitHub Pages (optional)
       if: ${{ inputs.publish != '' }}
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ inputs.publish }}
-        publish_dir: ./dist
+        publish_dir: ./dist/docs
