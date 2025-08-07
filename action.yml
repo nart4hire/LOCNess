@@ -37,14 +37,12 @@ runs:
     - name: Archive production artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist-without-markdown
-        path: |
-          dist
-          !dist/**/*.md
+        name: SVG
+        path: dist/loc.svg
 
     - name: Deploy to GitHub Pages (optional)
       if: ${{ inputs.publish != '' }}
-      uses: peaceiris/actions-gh-pages@v3
+      uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ inputs.publish }}
         publish_dir: ./dist
