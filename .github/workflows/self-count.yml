@@ -16,4 +16,4 @@ jobs:
       - name: Run LOC count on self
         uses: ./
         with:
-          publish: ${{ env.GITHUB_TOKEN }}
+          publish: ${{ secrets.GITHUB_TOKEN }}
