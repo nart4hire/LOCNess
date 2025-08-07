@@ -15,3 +15,5 @@ jobs:
 
       - name: Run LOC count on self
         uses: ./
+        with:
+          publish: true
