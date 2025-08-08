@@ -2,8 +2,8 @@ name: Self Count
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 jobs:
   test-self:
