@@ -39,8 +39,14 @@ async function main() {
 </svg>
   `;
 
+  // Ensure dist exists
+  const distDir = path.join(process.cwd(), 'dist');
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+
   // 5. Save it
-  fs.writeFileSync('./badge.svg', svg, 'utf8');
+  fs.writeFileSync('./dist/badge.svg', svg, 'utf8');
   console.log('Flattened SVG badge created: badge.svg');
 }
 
