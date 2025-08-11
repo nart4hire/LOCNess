@@ -28,7 +28,7 @@ runs:
       shell: bash
       run: |
         mkdir -p $(dirname "${{ inputs.output }}")
-        cloc ${{ inputs.path }} --json --out=cloc.json
+        cloc ${{ inputs.path }} --json --quiet --out=cloc.json
         TOTAL=$(jq '.SUM.code' cloc.json)
         echo '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40">
           <text x="10" y="25" font-size="16">Lines of Code: '"$TOTAL"'</text>
