@@ -28,11 +28,13 @@ const LABEL_SIZE = 15;
 const ROW_SIZE = 15;
 const COUNT_SIZE = 14;
 
-const CARD_FILL = '#ffffff';
-const CARD_STROKE = '#d0d7de';
-const INK = '#1f2328';
-const MUTED = '#57606a';
-const BAR_TRACK = '#eaeef2';
+const CARD_GRADIENT_TOP = '#0d1117';
+const CARD_GRADIENT_BOTTOM = '#161b22';
+const CARD_STROKE = '#30363d';
+const TEXT_FILL = '#e6edf3';
+const INK = TEXT_FILL;
+const MUTED = TEXT_FILL;
+const BAR_TRACK = '#21262d';
 
 type LanguageRow = {
   language: string;
@@ -194,6 +196,7 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
   const height = Math.ceil(Math.max(PADDING + mascotHeight, contentBottom) + PADDING);
 
   const rightX = PADDING + MASCOT_WIDTH + COLUMN_GAP;
+  const mascotX = -(PADDING + MASCOT_WIDTH);
   const mascotY = Math.round((height - mascotHeight) / 2);
   const nameX = rightX;
   const barX = rightX + nameColumnWidth + 12;
@@ -203,11 +206,17 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
   );
+  parts.push('<defs>');
+  parts.push('<linearGradient id="card-gradient" x1="0" y1="0" x2="0" y2="1">');
+  parts.push(`<stop offset="0" stop-color="${CARD_GRADIENT_TOP}"/>`);
+  parts.push(`<stop offset="1" stop-color="${CARD_GRADIENT_BOTTOM}"/>`);
+  parts.push('</linearGradient>');
+  parts.push('</defs>');
   parts.push(
-    `<rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="14" fill="${CARD_FILL}" stroke="${CARD_STROKE}"/>`,
+    `<rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="14" fill="url(#card-gradient)" stroke="${CARD_STROKE}" stroke-width="1"/>`,
   );
   parts.push(
-    `<image href="data:image/png;base64,${mascotPng.toString('base64')}" x="${PADDING}" y="${mascotY}" width="${MASCOT_WIDTH}" height="${mascotHeight}" preserveAspectRatio="xMidYMid meet"/>`,
+    `<image href="data:image/png;base64,${mascotPng.toString('base64')}" x="${mascotX}" y="${mascotY}" width="${MASCOT_WIDTH}" height="${mascotHeight}" preserveAspectRatio="xMidYMid meet" transform="scale(-1,1)"/>`,
   );
   parts.push(textPath(font, title, rightX, titleBaseline, TITLE_SIZE, INK));
   parts.push(textPath(font, totalText, rightX, totalBaseline, TOTAL_SIZE, INK));
