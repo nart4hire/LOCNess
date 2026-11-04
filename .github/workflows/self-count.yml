@@ -8,6 +8,12 @@ on:
       - 'v*'
   workflow_call:
 
+# A tag push and its branch commit both fire this workflow; two gh-pages
+# force-pushes racing each other fail one run of the pair (v1.0.1, run 41853129383).
+concurrency:
+  group: self-count
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
