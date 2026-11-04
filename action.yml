@@ -1,5 +1,5 @@
 name: 'LocNess'
-description: 'Generate a lines-of-code SVG and optionally publish to GitHub Pages'
+description: 'Generate a self-contained lines-of-code SVG badge with cloc and LOChy'
 
 inputs:
   path:
@@ -12,37 +12,16 @@ inputs:
     required: false
     default: 'dist/docs/loc.svg'
 
-  publish:
-    description: 'Whether to deploy the SVG to GitHub Pages'
+  font:
+    description: 'Path to a .ttf/.otf font file to use instead of the bundled Monocraft font'
+    required: false
+    default: ''
+
+  title:
+    description: 'Badge title (defaults to $GITHUB_REPOSITORY)'
     required: false
     default: ''
 
 runs:
-  using: 'composite'
-  steps:
-    - name: Install cloc
-      shell: bash
-      run: sudo apt-get update && sudo apt-get install -y cloc jq
-
-    - name: Run cloc and generate SVG
-      shell: bash
-      run: |
-        mkdir -p $(dirname "${{ inputs.output }}")
-        cloc ${{ inputs.path }} --json --quiet --out=cloc.json
-        TOTAL=$(jq '.SUM.code' cloc.json)
-        echo '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="40">
-          <text x="10" y="25" font-size="16">Lines of Code: '"$TOTAL"'</text>
-        </svg>' > ${{ inputs.output }}
-
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: SVG
-        path: dist/docs/loc.svg
-
-    - name: Deploy to GitHub Pages (optional)
-      if: ${{ inputs.publish != '' }}
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ inputs.publish }}
-        publish_dir: ./dist/docs
+  using: 'node20'
+  main: 'bundle/index.js'
