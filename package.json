@@ -1,11 +1,16 @@
 {
   "type": "module",
+  "scripts": {
+    "build:action": "node -e \"import('esbuild').then(({ build }) => build({ entryPoints: ['src/action/index.ts'], bundle: true, format: 'esm', platform: 'node', target: 'node20', outfile: 'bundle/index.js', sourcemap: false, banner: { js: \\\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\\\" } }))\""
+  },
   "dependencies": {
+    "@actions/core": "^1.11.1",
     "opentype.js": "^1.3.4"
   },
   "devDependencies": {
     "@types/node": "^24.2.1",
     "@types/opentype.js": "^1.3.8",
+    "esbuild": "^0.28.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
