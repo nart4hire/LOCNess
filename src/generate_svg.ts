@@ -1,78 +1,101 @@
-// cloc-to-svg.js
-import fs from 'fs';
-import path from 'path';
-import opentype from 'opentype.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { renderBadge } from './lib/render.js';
 
-type LanguageStats = {
-  language: string;
-  nFiles: number;
-  blank: number;
-  comment: number;
-  code: number;
+const DEFAULT_FONT_PATH = 'assets/fonts/Monocraft.otf';
+const DEFAULT_MASCOT_PATH = 'assets/LOChy_Draft.png';
+const DEFAULT_TITLE = 'LOC Summary';
+const USAGE = 'Usage: generate_svg <cloc.json> <out.svg> [--font <path>] [--title <name>]';
+
+type CliOptions = {
+  clocPath: string;
+  outputPath: string;
+  fontPath: string;
+  title: string;
 };
 
-const [, , firstArg, secondArg, thirdArg, forthArg] = process.argv;
-
-const fontPath = firstArg     || './assets/fonts/Monocraft.otf';
-const logoPath = secondArg    || './assets/logo.svg';
-const clocDataPath = thirdArg || './dist/result.json';
-const outputPath = forthArg   || './dist/badge.svg';
-
-// Helper: Convert text into an SVG <path>
-async function textToPath(fontPath: string, text: string, fontSize: number, x: number, y: number, fill = '#333') {
-  const font = await opentype.load(fontPath);
-  const pathData = font.getPath(text, x, y, fontSize).toPathData(3);
-  return `<path d="${pathData}" fill="${fill}" />`;
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-// async function generateBadge(clocData) {
+function parseArgs(argv: string[]): CliOptions {
+  const positionals: string[] = [];
+  let fontPath = DEFAULT_FONT_PATH;
+  let title = DEFAULT_TITLE;
 
-// }
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === undefined) {
+      continue;
+    }
 
-
-async function main() {
-  // 1. Read CLOC result
-  const resultPath = clocDataPath;
-  const clocDataRaw = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-  const languages: LanguageStats[] = Object.entries(clocDataRaw)
-    .filter(([key]) => key !== "header" && key !== "SUM")
-    .map(([language, stats]) => ({
-      language,
-      ...(stats as Omit<LanguageStats, "language">),
-    }));
-
-  // 2. Get the font path
-  const fontPath = path.resolve('./assets/fonts/Monocraft.otf');
-
-  // 3. Prepare your SVG content
-  const title = await textToPath(fontPath, 'CLOC Summary', 28, 20, 40, '#222');
-  const entries = [];
-
-  let yOffset = 80;
-  for (const { language, code } of languages) {
-    if (!code) continue; // skip if no code lines
-    const text = `${language}: ${code} lines`;
-    entries.push(await textToPath(fontPath, text, 18, 20, yOffset));
-    yOffset += 30;
+    if (arg === '--font' || arg === '--title') {
+      const value = argv[index + 1];
+      if (value === undefined) {
+        throw new Error(`${arg} requires a value\n${USAGE}`);
+      }
+      if (arg === '--font') {
+        fontPath = value;
+      } else {
+        title = value;
+      }
+      index += 1;
+    } else if (arg.startsWith('--font=')) {
+      fontPath = arg.slice('--font='.length);
+      if (fontPath.length === 0) {
+        throw new Error(`--font requires a value\n${USAGE}`);
+      }
+    } else if (arg.startsWith('--title=')) {
+      title = arg.slice('--title='.length);
+    } else if (arg.startsWith('-')) {
+      throw new Error(`Unknown option "${arg}"\n${USAGE}`);
+    } else {
+      positionals.push(arg);
+    }
   }
 
-  // 4. Build the SVG
-  const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="500" height="${yOffset + 20}">
-  <rect width="100%" height="100%" fill="#fff" />
-  ${title}
-  ${entries.join('\n')}
-</svg>
-  `;
-
-  // 5. Ensure dist exists
-  const distDir = path.join(process.cwd(), 'dist');
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir, { recursive: true });
+  const [clocPath, outputPath, ...extra] = positionals;
+  if (clocPath === undefined || outputPath === undefined || extra.length > 0) {
+    throw new Error(`Expected exactly two positional arguments\n${USAGE}`);
   }
 
-  // 6. Save it
-  fs.writeFileSync('./dist/badge.svg', svg, 'utf8');
+  return { clocPath, outputPath, fontPath, title };
 }
 
-main().catch(console.error);
+async function readClocJson(clocPath: string): Promise<object> {
+  try {
+    const raw = await fs.promises.readFile(clocPath, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('expected a JSON object');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(`Failed to read cloc JSON "${clocPath}": ${describeError(error)}`);
+  }
+}
+
+async function main(): Promise<void> {
+  const options = parseArgs(process.argv.slice(2));
+  const clocJson = await readClocJson(options.clocPath);
+
+  const svg = await renderBadge({
+    clocJson,
+    fontPath: options.fontPath,
+    title: options.title,
+    mascotPath: DEFAULT_MASCOT_PATH,
+  });
+
+  try {
+    const outputDir = path.dirname(path.resolve(options.outputPath));
+    await fs.promises.mkdir(outputDir, { recursive: true });
+    await fs.promises.writeFile(options.outputPath, svg, 'utf8');
+  } catch (error) {
+    throw new Error(`Failed to write SVG "${options.outputPath}": ${describeError(error)}`);
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(describeError(error));
+  process.exitCode = 1;
+});

@@ -1,0 +1,90 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { renderBadge } from './lib/render.js';
+const DEFAULT_FONT_PATH = 'assets/fonts/Monocraft.otf';
+const DEFAULT_MASCOT_PATH = 'assets/LOChy_Draft.png';
+const DEFAULT_TITLE = 'LOC Summary';
+const USAGE = 'Usage: generate_svg <cloc.json> <out.svg> [--font <path>] [--title <name>]';
+function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+function parseArgs(argv) {
+    const positionals = [];
+    let fontPath = DEFAULT_FONT_PATH;
+    let title = DEFAULT_TITLE;
+    for (let index = 0; index < argv.length; index += 1) {
+        const arg = argv[index];
+        if (arg === undefined) {
+            continue;
+        }
+        if (arg === '--font' || arg === '--title') {
+            const value = argv[index + 1];
+            if (value === undefined) {
+                throw new Error(`${arg} requires a value\n${USAGE}`);
+            }
+            if (arg === '--font') {
+                fontPath = value;
+            }
+            else {
+                title = value;
+            }
+            index += 1;
+        }
+        else if (arg.startsWith('--font=')) {
+            fontPath = arg.slice('--font='.length);
+            if (fontPath.length === 0) {
+                throw new Error(`--font requires a value\n${USAGE}`);
+            }
+        }
+        else if (arg.startsWith('--title=')) {
+            title = arg.slice('--title='.length);
+        }
+        else if (arg.startsWith('-')) {
+            throw new Error(`Unknown option "${arg}"\n${USAGE}`);
+        }
+        else {
+            positionals.push(arg);
+        }
+    }
+    const [clocPath, outputPath, ...extra] = positionals;
+    if (clocPath === undefined || outputPath === undefined || extra.length > 0) {
+        throw new Error(`Expected exactly two positional arguments\n${USAGE}`);
+    }
+    return { clocPath, outputPath, fontPath, title };
+}
+async function readClocJson(clocPath) {
+    try {
+        const raw = await fs.promises.readFile(clocPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            throw new Error('expected a JSON object');
+        }
+        return parsed;
+    }
+    catch (error) {
+        throw new Error(`Failed to read cloc JSON "${clocPath}": ${describeError(error)}`);
+    }
+}
+async function main() {
+    const options = parseArgs(process.argv.slice(2));
+    const clocJson = await readClocJson(options.clocPath);
+    const svg = await renderBadge({
+        clocJson,
+        fontPath: options.fontPath,
+        title: options.title,
+        mascotPath: DEFAULT_MASCOT_PATH,
+    });
+    try {
+        const outputDir = path.dirname(path.resolve(options.outputPath));
+        await fs.promises.mkdir(outputDir, { recursive: true });
+        await fs.promises.writeFile(options.outputPath, svg, 'utf8');
+    }
+    catch (error) {
+        throw new Error(`Failed to write SVG "${options.outputPath}": ${describeError(error)}`);
+    }
+}
+main().catch((error) => {
+    console.error(describeError(error));
+    process.exitCode = 1;
+});
+//# sourceMappingURL=generate_svg.js.map
