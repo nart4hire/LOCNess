@@ -2,18 +2,38 @@ name: Self Count
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_call:
+
+permissions:
+  contents: write
 
 jobs:
-  test-self:
+  self-count:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
 
-      - name: Run LOC count on self
+      - name: Run LOChy on this repo
         uses: ./
         with:
-          publish: ${{ secrets.GITHUB_TOKEN }}
+          output: dist/docs/loc.svg
+
+      - name: Upload badge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lochy-badge
+          path: dist/docs/loc.svg
+          if-no-files-found: error
+
+      - name: Publish badge to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist/docs
+          publish_branch: gh-pages
