@@ -8,6 +8,9 @@
  * against the track, so the map can keep the recognisable hue and the badge
  * stays readable as the map grows.
  *
+ * `barColorFor` goes one step further: a bar's weight should track its share of
+ * the repo, not its hue, so small shares are mixed toward the track.
+ *
  * Keys are lower-cased so lookups are insensitive to cloc's casing; unknown
  * languages (including the synthetic "Others" row) use FALLBACK_COLOR.
  */
@@ -181,4 +184,37 @@ export function ensureVisible(hex: string): string {
 export function colorFor(language: string): string {
   const raw = LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
   return ensureVisible(raw);
+}
+
+/** Linear mix of two hex colours; amount is 0..1 toward `target`. */
+function mixToward(source: string, target: string, amount: number): string {
+  const from = parseHex(source);
+  const to = parseHex(target);
+  if (from === undefined || to === undefined) {
+    return source;
+  }
+  const clamped = Math.min(1, Math.max(0, amount));
+  const channel = (a: number, b: number) => a + (b - a) * clamped;
+  return toHex({
+    r: channel(from.r, to.r),
+    g: channel(from.g, to.g),
+    b: channel(from.b, to.b),
+  });
+}
+
+/**
+ * Share at which a bar is drawn at full strength. Below it the fill is mixed
+ * toward the track so a 2%-of-repo language does not out-shout a 60% one just
+ * because its hue happens to be the lightest on the card.
+ */
+const FULL_STRENGTH_SHARE = 0.25;
+
+/** How far the dimmest bar is pushed toward the track. */
+const MAX_DIM = 0.24;
+
+export function barColorFor(language: string, share: number): string {
+  const base = colorFor(language);
+  const strength = Math.max(0, Math.min(1, share / FULL_STRENGTH_SHARE));
+  const amount = (1 - strength) * MAX_DIM;
+  return amount <= 0 ? base : mixToward(base, BAR_TRACK_COLOR, amount);
 }

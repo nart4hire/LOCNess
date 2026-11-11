@@ -80,6 +80,11 @@ Totals under 10,000 print exactly — `1,120`, not `1k` — because that is the
 range a badge actually gets read in. Above that the card switches to whole
 thousands (`12k`) and then to millions (`2.1M`) to keep the layout narrow.
 
+Bar length is each language's **share of the repository**, not its share of the
+largest row, so the bars add up to the total and a dominant language no longer
+turns every other row into a stub. Bars below 25% are mixed toward the track so
+a small language cannot out-shout a large one on hue alone.
+
 Two more things worth knowing:
 
 - When `path` points at a directory containing `.git`, cloc also runs with
@@ -137,6 +142,13 @@ total.
 GitHub Pages sites are public by default: once a badge is published there,
 anyone with the URL can view it. Do not publish a badge if the repository name
 or the lines-of-code total must stay private.
+
+## TODO
+
+- **Shrink the mascot.** `assets/LOChy_Draft.png` is ~436 KB and accounts for
+  ~99% of the generated file; the badge draws it at 140 px wide. Recompress it
+  (or ship a WebP/AVIF and keep the PNG as fallback) before the next release —
+  a 2× asset would be visually identical here.
 
 ## License
 

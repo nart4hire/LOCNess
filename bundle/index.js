@@ -32240,6 +32240,28 @@ function colorFor(language) {
   const raw = LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
   return ensureVisible(raw);
 }
+function mixToward(source, target, amount) {
+  const from = parseHex(source);
+  const to = parseHex(target);
+  if (from === void 0 || to === void 0) {
+    return source;
+  }
+  const clamped = Math.min(1, Math.max(0, amount));
+  const channel = (a, b) => a + (b - a) * clamped;
+  return toHex({
+    r: channel(from.r, to.r),
+    g: channel(from.g, to.g),
+    b: channel(from.b, to.b)
+  });
+}
+var FULL_STRENGTH_SHARE = 0.25;
+var MAX_DIM = 0.24;
+function barColorFor(language, share) {
+  const base = colorFor(language);
+  const strength = Math.max(0, Math.min(1, share / FULL_STRENGTH_SHARE));
+  const amount = (1 - strength) * MAX_DIM;
+  return amount <= 0 ? base : mixToward(base, BAR_TRACK_COLOR, amount);
+}
 
 // src/lib/format.ts
 function formatCount(n) {
@@ -32261,10 +32283,11 @@ var DEFAULT_TITLE = "LOC Summary";
 var TEXT_FONT_STACK = "Monocraft, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 var PADDING = 24;
 var MASCOT_WIDTH = 140;
-var COLUMN_GAP = 24;
+var COLUMN_GAP = 40;
 var MAX_LANGUAGES = 8;
 var BAR_MAX_WIDTH = 150;
 var BAR_HEIGHT = 8;
+var MIN_BAR_WIDTH = 6;
 var ROW_HEIGHT = 26;
 var TITLE_SIZE = 26;
 var TOTAL_SIZE = 44;
@@ -32274,6 +32297,9 @@ var COUNT_SIZE = 14;
 var CARD_GRADIENT_TOP = "#0d1117";
 var CARD_GRADIENT_BOTTOM = "#161b22";
 var CARD_STROKE = "#30363d";
+var DOT_COLOR = "#2a3340";
+var GLOW_COLOR = "#2b3a52";
+var DOT_PITCH = 16;
 var TEXT_FILL = "#e6edf3";
 var INK = TEXT_FILL;
 var MUTED = TEXT_FILL;
@@ -32359,7 +32385,7 @@ function textWidth(font, text, size) {
 }
 function textPath(font, run) {
   const data = font.getPath(run.value, run.x, run.baseline, run.size).toPathData(2);
-  return `<path d="${data}" fill="${run.fill}"/>`;
+  return `<path class="glyph" d="${data}" fill="${run.fill}"/>`;
 }
 function textElement(run) {
   return `<text x="${run.x}" y="${run.baseline}" font-family="${TEXT_FONT_STACK}" font-size="${run.size}" fill="${run.fill}">${escapeXml(run.value)}</text>`;
@@ -32385,7 +32411,6 @@ async function renderBadge(opts) {
   const countWidths = rows.map((row) => textWidth(font, formatCount(row.code), COUNT_SIZE));
   const nameColumnWidth = nameWidths.length === 0 ? 0 : Math.max(...nameWidths);
   const countColumnWidth = countWidths.length === 0 ? 0 : Math.max(...countWidths);
-  const maxCode = rows.reduce((max, row) => Math.max(max, row.code), 0);
   const rowWidth = rows.length === 0 ? 0 : nameColumnWidth + 12 + BAR_MAX_WIDTH + 10 + countColumnWidth;
   const contentWidth = Math.max(titleWidth, totalBlockWidth, rowWidth);
   const width = Math.ceil(PADDING + MASCOT_WIDTH + COLUMN_GAP + contentWidth + PADDING);
@@ -32412,9 +32437,27 @@ async function renderBadge(opts) {
   parts.push(`<stop offset="0" stop-color="${CARD_GRADIENT_TOP}"/>`);
   parts.push(`<stop offset="1" stop-color="${CARD_GRADIENT_BOTTOM}"/>`);
   parts.push("</linearGradient>");
+  parts.push('<radialGradient id="mascot-glow" cx="50%" cy="50%" r="50%">');
+  parts.push(`<stop offset="0" stop-color="${GLOW_COLOR}" stop-opacity="0.75"/>`);
+  parts.push(`<stop offset="1" stop-color="${GLOW_COLOR}" stop-opacity="0"/>`);
+  parts.push("</radialGradient>");
+  parts.push(
+    `<pattern id="dot-grid" width="${DOT_PITCH}" height="${DOT_PITCH}" patternUnits="userSpaceOnUse">`
+  );
+  parts.push(`<circle cx="1" cy="1" r="1" fill="${DOT_COLOR}" fill-opacity="0.55"/>`);
+  parts.push("</pattern>");
   parts.push("</defs>");
   parts.push(
     `<rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="14" fill="url(#card-gradient)" stroke="${CARD_STROKE}" stroke-width="1"/>`
+  );
+  parts.push(
+    `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="13" fill="url(#dot-grid)"/>`
+  );
+  parts.push(
+    `<ellipse cx="${PADDING + MASCOT_WIDTH / 2}" cy="${height / 2}" rx="${Math.round(MASCOT_WIDTH * 0.8)}" ry="${Math.round(mascotHeight / 2 + 20)}" fill="url(#mascot-glow)"/>`
+  );
+  parts.push(
+    `<path d="M 14 1.5 H ${width - 14}" stroke="#ffffff" stroke-opacity="0.07" stroke-width="1"/>`
   );
   parts.push(
     `<image href="data:image/png;base64,${mascotPng.toString("base64")}" x="${mascotX}" y="${mascotY}" width="${MASCOT_WIDTH}" height="${mascotHeight}" preserveAspectRatio="xMidYMid meet" transform="scale(-1,1)"/>`
@@ -32448,7 +32491,11 @@ async function renderBadge(opts) {
   );
   rows.forEach((row, index) => {
     const baseline = firstRowBaseline + index * ROW_HEIGHT;
-    const barWidth = maxCode === 0 ? 0 : Math.max(2, Math.round(BAR_MAX_WIDTH * row.code / maxCode));
+    const share = total > 0 ? row.code / total : 0;
+    const barWidth = Math.min(
+      BAR_MAX_WIDTH,
+      Math.max(MIN_BAR_WIDTH, Math.round(BAR_MAX_WIDTH * share))
+    );
     const barY = baseline - 11;
     parts.push(
       render(font, {
@@ -32463,7 +32510,7 @@ async function renderBadge(opts) {
       `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK_COLOR}"/>`
     );
     parts.push(
-      `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${colorFor(row.language)}"/>`
+      `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${barColorFor(row.language, share)}"/>`
     );
     parts.push(
       render(font, {

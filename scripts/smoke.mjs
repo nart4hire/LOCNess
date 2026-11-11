@@ -81,11 +81,14 @@ if (!haveCloc()) {
 const outlined = run('true');
 assert(outlined.startsWith('<svg'), 'outlined badge is an <svg>');
 assert(outlined.includes('<title>'), 'outlined badge carries a <title>');
-assert(outlined.includes('<path d="'), 'outlined badge bakes text to glyph outlines');
+assert(
+  (outlined.match(/class="glyph"/g) ?? []).length > 0,
+  'outlined badge bakes text to glyph outlines',
+);
 
 const text = run('false');
 assert(text.includes('<text '), 'text mode emits <text> elements');
-assert(!text.includes('<path d="'), 'text mode embeds no glyph paths');
+assert(!text.includes('class="glyph"'), 'text mode embeds no glyph paths');
 assert(text.includes(`aria-label="`), 'text mode is aria-labelled');
 
 const total = /<text[^>]*>(\d+(?:\.\d+)?[kM]?)<\/text>/.exec(text);
