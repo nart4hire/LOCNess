@@ -1,9 +1,27 @@
 /**
- * GitHub Linguist colours for common languages.
+ * Language colours for the badge bars.
+ *
+ * Hues come from GitHub Linguist, which is tuned for a *light* UI. The badge is
+ * a dark card, and several linguist colours (json, powershell, lua, ruby, …)
+ * land within a few percent of the bar track — the bar renders as a blank
+ * slot. `ensureVisible` lifts any colour that cannot clear MIN_BAR_CONTRAST
+ * against the track, so the map can keep the recognisable hue and the badge
+ * stays readable as the map grows.
  *
  * Keys are lower-cased so lookups are insensitive to cloc's casing; unknown
- * languages (including the synthetic "Others" row) use a neutral grey.
+ * languages (including the synthetic "Others" row) use FALLBACK_COLOR.
  */
+
+/** Track the bars sit on. render.ts imports this so the two cannot drift. */
+export const BAR_TRACK_COLOR = '#21262d';
+
+/** Minimum WCAG contrast ratio between a bar and the track it sits on. */
+const MIN_BAR_CONTRAST = 3;
+
+/** How far a colour is pushed toward white per lift step. */
+const LIFT_STEP = 0.06;
+const MAX_LIFT_STEPS = 24;
+
 const LANGUAGE_COLORS: Readonly<Record<string, string>> = {
   typescript: '#3178c6',
   javascript: '#f1e05a',
@@ -49,10 +67,118 @@ const LANGUAGE_COLORS: Readonly<Record<string, string>> = {
   julia: '#a270ba',
   solidity: '#AA6746',
   cmake: '#DA3434',
+  coffeescript: '#244776',
+  crystal: '#000100',
+  d: '#ba595e',
+  elm: '#60B5CC',
+  'f#': '#b845fc',
+  'fortran 77': '#4d41b1',
+  'fortran 90': '#4d41b1',
+  gdscript: '#355570',
+  gleam: '#ffaff3',
+  groovy: '#4298b0',
+  hcl: '#844FBA',
+  haxe: '#df7900',
+  ini: '#d1dbe0',
+  json5: '#267CB9',
+  lean: '#000000',
+  less: '#1d365d',
+  matlab: '#e16737',
+  mathematica: '#dd1100',
+  nim: '#ffc200',
+  pascal: '#E3F171',
+  prolog: '#74283c',
+  'protocol buffers': '#e98600',
+  racket: '#3c5caa',
+  scss: '#c6538c',
+  sass: '#a53b70',
+  scheme: '#1e4aec',
+  slim: '#2b2b2b',
+  smalltalk: '#596706',
+  stylus: '#ff6347',
+  toml: '#9c4221',
+  vala: '#a56de2',
+  'visual basic': '#945db7',
+  webassembly: '#04133b',
+  xaml: '#0C54C6',
+  xml: '#0060ac',
+  xtend: '#24323d',
+  zsh: '#3a5d3f',
 };
 
 export const FALLBACK_COLOR = '#8b8b8b';
 
+type Rgb = { r: number; g: number; b: number };
+
+function parseHex(hex: string): Rgb | undefined {
+  const value = hex.trim().replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) {
+    return undefined;
+  }
+  return {
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function toHex({ r, g, b }: Rgb): string {
+  const part = (channel: number) =>
+    Math.round(Math.min(255, Math.max(0, channel)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${part(r)}${part(g)}${part(b)}`;
+}
+
+function linearize(channel: number): number {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance({ r, g, b }: Rgb): number {
+  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const left = parseHex(a);
+  const right = parseHex(b);
+  if (left === undefined || right === undefined) {
+    return 1;
+  }
+  const la = luminance(left);
+  const lb = luminance(right);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function mixWithWhite({ r, g, b }: Rgb, amount: number): Rgb {
+  const mix = (channel: number) => channel + (255 - channel) * amount;
+  return { r: mix(r), g: mix(g), b: mix(b) };
+}
+
+/**
+ * Lift a colour toward white until it clears MIN_BAR_CONTRAST against the bar
+ * track. Pure function of the input, so a given language always renders the
+ * same colour.
+ */
+export function ensureVisible(hex: string): string {
+  const start = parseHex(hex);
+  if (start === undefined) {
+    return FALLBACK_COLOR;
+  }
+
+  let current = start;
+  for (let step = 0; step < MAX_LIFT_STEPS; step += 1) {
+    if (contrastRatio(toHex(current), BAR_TRACK_COLOR) >= MIN_BAR_CONTRAST) {
+      return toHex(current);
+    }
+    current = mixWithWhite(current, LIFT_STEP);
+  }
+  return toHex(current);
+}
+
 export function colorFor(language: string): string {
-  return LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
+  const raw = LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
+  return ensureVisible(raw);
 }

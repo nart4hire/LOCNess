@@ -42,6 +42,14 @@ inputs:
     required: false
     default: 'node_modules,vendor,bundle,build,dist,coverage'
 
+  exclude_files:
+    description: >-
+      Perl regex of filenames cloc must not count. Defaults to the generated
+      lock files (package-lock.json, pnpm-lock.yaml, Cargo.lock, go.sum, ...).
+      Set to a space to disable the filter entirely.
+    required: false
+    default: 'package-lock\.json$|npm-shrinkwrap\.json$|pnpm-lock\.yaml$|yarn\.lock$|bun\.lockb?$|Cargo\.lock$|poetry\.lock$|Pipfile\.lock$|composer\.lock$|Gemfile\.lock$|packages\.lock\.json$|go\.sum$'
+
   title:
     description: 'Badge title (defaults to $GITHUB_REPOSITORY)'
     required: false

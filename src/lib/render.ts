@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import { load, type Font } from 'opentype.js';
-import { colorFor } from './colors.js';
+import { BAR_TRACK_COLOR, colorFor } from './colors.js';
 import { formatCount } from './format.js';
 
 export type RenderBadgeOptions = {
@@ -45,7 +45,6 @@ const CARD_STROKE = '#30363d';
 const TEXT_FILL = '#e6edf3';
 const INK = TEXT_FILL;
 const MUTED = TEXT_FILL;
-const BAR_TRACK = '#21262d';
 
 type LanguageRow = {
   language: string;
@@ -304,7 +303,7 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
       }),
     );
     parts.push(
-      `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK}"/>`,
+      `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK_COLOR}"/>`,
     );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${colorFor(row.language)}"/>`,

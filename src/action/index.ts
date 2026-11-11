@@ -17,6 +17,27 @@ const DEFAULT_MASCOT_PATH = path.join(ACTION_ROOT, 'assets', 'LOChy_Draft.png');
  */
 const DEFAULT_EXCLUDE = ['node_modules', 'vendor', 'bundle', 'build', 'dist', 'coverage'];
 
+/**
+ * Generated lock files cloc never counts by default. They are machine-written,
+ * are the single largest line source in most JS repos, and describe dependency
+ * resolution rather than code. Hand-written manifests (package.json,
+ * tsconfig.json) stay in scope — they are authored files.
+ */
+const DEFAULT_EXCLUDE_FILES = [
+  'package-lock\\.json$',
+  'npm-shrinkwrap\\.json$',
+  'pnpm-lock\\.yaml$',
+  'yarn\\.lock$',
+  'bun\\.lockb?$',
+  'Cargo\\.lock$',
+  'poetry\\.lock$',
+  'Pipfile\\.lock$',
+  'composer\\.lock$',
+  'Gemfile\\.lock$',
+  'packages\\.lock\\.json$',
+  'go\\.sum$',
+].join('|');
+
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -78,6 +99,21 @@ async function ensureCloc(): Promise<void> {
   }
 }
 
+/**
+ * The runner always exports INPUT_EXCLUDE_FILES (action.yml supplies a
+ * default), so "absent" and "explicitly blank" have to be told apart: absent
+ * means a direct bundle run without inputs, blank means the consumer asked for
+ * no filter at all.
+ */
+function excludeFilesFilter(): string | undefined {
+  const raw = process.env['INPUT_EXCLUDE_FILES'];
+  if (raw === undefined) {
+    return DEFAULT_EXCLUDE_FILES;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function excludeDirs(): string[] {
   const raw = core.getInput('exclude').trim();
   const list = (raw.length > 0 ? raw : DEFAULT_EXCLUDE.join(','))
@@ -90,6 +126,11 @@ function excludeDirs(): string[] {
 function runCloc(analyzePath: string, tempDir: string): Promise<string> {
   const jsonPath = path.join(tempDir, 'cloc.json');
   const args = [analyzePath, '--json', '--quiet', `--exclude-dir=${excludeDirs().join(',')}`];
+
+  const excludeFiles = excludeFilesFilter();
+  if (excludeFiles !== undefined) {
+    args.push(`--not-match-f=${excludeFiles}`);
+  }
 
   if (fs.existsSync(path.join(analyzePath, '.git'))) {
     args.push('--vcs=git');

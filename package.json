@@ -4,7 +4,8 @@
     "build": "npm run build:action",
     "build:action": "node -e \"import('esbuild').then(({ build }) => build({ entryPoints: ['src/action/index.ts'], bundle: true, format: 'esm', platform: 'node', target: 'node20', outfile: 'bundle/index.js', sourcemap: false, banner: { js: \\\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\\\" } }))\"",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/smoke.mjs"
+    "test:colors": "node --experimental-strip-types scripts/check-colors.mts",
+    "test": "npm run test:colors && node scripts/smoke.mjs"
   },
   "dependencies": {
     "@actions/core": "^1.11.1",

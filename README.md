@@ -68,7 +68,13 @@ want the badge to stay frozen until you bump it.
 
 The badge is meant to describe *your source*, not your build output, so cloc is
 run with `node_modules`, `vendor`, `bundle`, `build`, `dist` and `coverage`
-excluded by default. Override that with the `exclude` input.
+excluded by default, and generated lock files (`package-lock.json`,
+`pnpm-lock.yaml`, `Cargo.lock`, `go.sum`, …) filtered out by name. Override
+either with the `exclude` and `exclude_files` inputs.
+
+Hand-written manifests and config (`package.json`, `tsconfig.json`) still count:
+they are authored files, not generated ones. If you would rather they did not,
+`exclude_files` takes any Perl regex over filenames.
 
 Two more things worth knowing:
 
@@ -90,8 +96,19 @@ action bundle. It now counts source only.
 | `font`         | No       | Bundled Monocraft                              | Path to a `.ttf`/`.otf` font file to use instead of the bundled font.                                            |
 | `mascot`       | No       | Bundled LOChy artwork                          | Path to a `.png` mascot. Use your own image to ship a badge without the Lochy brand assets.                      |
 | `outline_text` | No       | `true`                                         | `true` bakes every string to glyph outlines (identical rendering anywhere, larger file). `false` emits selectable `<text>` with a monospace fallback stack and adds `<title>`/`aria-label`. |
-| `exclude`      | No       | `node_modules,vendor,bundle,build,dist,coverage` | Comma-separated directory names cloc must not count.                                                            |
+| `exclude`      | No       | `node_modules,vendor,bundle,build,dist,coverage` | Comma-separated directory names cloc must not count.                                                                 |
+| `exclude_files`| No       | generated lock files                           | Perl regex over filenames cloc must not count. Set to a space to disable.                                              |
 | `title`        | No       | `$GITHUB_REPOSITORY`                           | Badge title. Defaults to the repository name when left empty.                                                    |
+
+## Colours
+
+Bar hues come from [GitHub Linguist](https://github.com/github-linguist/linguist),
+which is tuned for a light UI. The badge is a dark card, and several linguist
+colours (`json`, `powershell`, `lua`, `ruby`) land within a few percent of the
+bar track and used to render as blank slots. Every colour is now lifted toward
+white until it clears a 3:1 contrast ratio against the track, keeping the
+recognisable hue. Unknown languages fall back to a neutral grey that passes the
+same rule.
 
 ## Text mode and accessibility
 

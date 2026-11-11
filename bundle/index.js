@@ -32096,6 +32096,10 @@ var import_opentype = __toESM(require_opentype(), 1);
 import * as fs from "node:fs";
 
 // src/lib/colors.ts
+var BAR_TRACK_COLOR = "#21262d";
+var MIN_BAR_CONTRAST = 3;
+var LIFT_STEP = 0.06;
+var MAX_LIFT_STEPS = 24;
 var LANGUAGE_COLORS = {
   typescript: "#3178c6",
   javascript: "#f1e05a",
@@ -32140,11 +32144,101 @@ var LANGUAGE_COLORS = {
   ocaml: "#ef7a08",
   julia: "#a270ba",
   solidity: "#AA6746",
-  cmake: "#DA3434"
+  cmake: "#DA3434",
+  coffeescript: "#244776",
+  crystal: "#000100",
+  d: "#ba595e",
+  elm: "#60B5CC",
+  "f#": "#b845fc",
+  "fortran 77": "#4d41b1",
+  "fortran 90": "#4d41b1",
+  gdscript: "#355570",
+  gleam: "#ffaff3",
+  groovy: "#4298b0",
+  hcl: "#844FBA",
+  haxe: "#df7900",
+  ini: "#d1dbe0",
+  json5: "#267CB9",
+  lean: "#000000",
+  less: "#1d365d",
+  matlab: "#e16737",
+  mathematica: "#dd1100",
+  nim: "#ffc200",
+  pascal: "#E3F171",
+  prolog: "#74283c",
+  "protocol buffers": "#e98600",
+  racket: "#3c5caa",
+  scss: "#c6538c",
+  sass: "#a53b70",
+  scheme: "#1e4aec",
+  slim: "#2b2b2b",
+  smalltalk: "#596706",
+  stylus: "#ff6347",
+  toml: "#9c4221",
+  vala: "#a56de2",
+  "visual basic": "#945db7",
+  webassembly: "#04133b",
+  xaml: "#0C54C6",
+  xml: "#0060ac",
+  xtend: "#24323d",
+  zsh: "#3a5d3f"
 };
 var FALLBACK_COLOR = "#8b8b8b";
+function parseHex(hex) {
+  const value = hex.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) {
+    return void 0;
+  }
+  return {
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16)
+  };
+}
+function toHex({ r, g, b }) {
+  const part = (channel) => Math.round(Math.min(255, Math.max(0, channel))).toString(16).padStart(2, "0");
+  return `#${part(r)}${part(g)}${part(b)}`;
+}
+function linearize(channel) {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+function luminance({ r, g, b }) {
+  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+}
+function contrastRatio(a, b) {
+  const left = parseHex(a);
+  const right = parseHex(b);
+  if (left === void 0 || right === void 0) {
+    return 1;
+  }
+  const la = luminance(left);
+  const lb = luminance(right);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+function mixWithWhite({ r, g, b }, amount) {
+  const mix = (channel) => channel + (255 - channel) * amount;
+  return { r: mix(r), g: mix(g), b: mix(b) };
+}
+function ensureVisible(hex) {
+  const start = parseHex(hex);
+  if (start === void 0) {
+    return FALLBACK_COLOR;
+  }
+  let current = start;
+  for (let step = 0; step < MAX_LIFT_STEPS; step += 1) {
+    if (contrastRatio(toHex(current), BAR_TRACK_COLOR) >= MIN_BAR_CONTRAST) {
+      return toHex(current);
+    }
+    current = mixWithWhite(current, LIFT_STEP);
+  }
+  return toHex(current);
+}
 function colorFor(language) {
-  return LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
+  const raw = LANGUAGE_COLORS[language.trim().toLowerCase()] ?? FALLBACK_COLOR;
+  return ensureVisible(raw);
 }
 
 // src/lib/format.ts
@@ -32183,7 +32277,6 @@ var CARD_STROKE = "#30363d";
 var TEXT_FILL = "#e6edf3";
 var INK = TEXT_FILL;
 var MUTED = TEXT_FILL;
-var BAR_TRACK = "#21262d";
 function describeError(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -32367,7 +32460,7 @@ async function renderBadge(opts) {
       })
     );
     parts.push(
-      `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK}"/>`
+      `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK_COLOR}"/>`
     );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${colorFor(row.language)}"/>`
@@ -32392,6 +32485,20 @@ var ACTION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 var DEFAULT_FONT_PATH2 = path.join(ACTION_ROOT, "assets", "fonts", "Monocraft.otf");
 var DEFAULT_MASCOT_PATH2 = path.join(ACTION_ROOT, "assets", "LOChy_Draft.png");
 var DEFAULT_EXCLUDE = ["node_modules", "vendor", "bundle", "build", "dist", "coverage"];
+var DEFAULT_EXCLUDE_FILES = [
+  "package-lock\\.json$",
+  "npm-shrinkwrap\\.json$",
+  "pnpm-lock\\.yaml$",
+  "yarn\\.lock$",
+  "bun\\.lockb?$",
+  "Cargo\\.lock$",
+  "poetry\\.lock$",
+  "Pipfile\\.lock$",
+  "composer\\.lock$",
+  "Gemfile\\.lock$",
+  "packages\\.lock\\.json$",
+  "go\\.sum$"
+].join("|");
 function describeError2(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -32436,6 +32543,14 @@ async function ensureCloc() {
     );
   }
 }
+function excludeFilesFilter() {
+  const raw = process.env["INPUT_EXCLUDE_FILES"];
+  if (raw === void 0) {
+    return DEFAULT_EXCLUDE_FILES;
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : void 0;
+}
 function excludeDirs() {
   const raw = core.getInput("exclude").trim();
   const list = (raw.length > 0 ? raw : DEFAULT_EXCLUDE.join(",")).split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
@@ -32444,6 +32559,10 @@ function excludeDirs() {
 function runCloc(analyzePath, tempDir) {
   const jsonPath = path.join(tempDir, "cloc.json");
   const args = [analyzePath, "--json", "--quiet", `--exclude-dir=${excludeDirs().join(",")}`];
+  const excludeFiles = excludeFilesFilter();
+  if (excludeFiles !== void 0) {
+    args.push(`--not-match-f=${excludeFiles}`);
+  }
   if (fs2.existsSync(path.join(analyzePath, ".git"))) {
     args.push("--vcs=git");
   }
