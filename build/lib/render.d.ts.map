@@ -1,1 +1,0 @@
-{"version":3,"file":"render.d.ts","sourceRoot":"","sources":["../../src/lib/render.ts"],"names":[],"mappings":"AAKA,MAAM,MAAM,kBAAkB,GAAG;IAC/B,QAAQ,EAAE,MAAM,CAAC;IACjB,KAAK,CAAC,EAAE,MAAM,CAAC;IACf,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,MAAM,CAAC;CACrB,CAAC;AAyIF;;;;;;GAMG;AACH,wBAAsB,WAAW,CAAC,IAAI,EAAE,kBAAkB,GAAG,OAAO,CAAC,MAAM,CAAC,CA+E3E"}

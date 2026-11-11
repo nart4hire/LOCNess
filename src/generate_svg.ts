@@ -5,12 +5,16 @@ import { renderBadge } from './lib/render.js';
 const DEFAULT_FONT_PATH = 'assets/fonts/Monocraft.otf';
 const DEFAULT_MASCOT_PATH = 'assets/LOChy_Draft.png';
 const DEFAULT_TITLE = 'LOC Summary';
-const USAGE = 'Usage: generate_svg <cloc.json> <out.svg> [--font <path>] [--title <name>]';
+const USAGE =
+  'Usage: generate_svg <cloc.json> <out.svg> [--font <path>] [--mascot <path>] ' +
+  '[--title <name>] [--no-outline]';
 
 type CliOptions = {
   clocPath: string;
   outputPath: string;
   fontPath: string;
+  mascotPath: string;
+  outlineText: boolean;
   title: string;
 };
 
@@ -21,6 +25,8 @@ function describeError(error: unknown): string {
 function parseArgs(argv: string[]): CliOptions {
   const positionals: string[] = [];
   let fontPath = DEFAULT_FONT_PATH;
+  let mascotPath = DEFAULT_MASCOT_PATH;
+  let outlineText = true;
   let title = DEFAULT_TITLE;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -29,21 +35,30 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
-    if (arg === '--font' || arg === '--title') {
+    if (arg === '--font' || arg === '--mascot' || arg === '--title') {
       const value = argv[index + 1];
       if (value === undefined) {
         throw new Error(`${arg} requires a value\n${USAGE}`);
       }
       if (arg === '--font') {
         fontPath = value;
+      } else if (arg === '--mascot') {
+        mascotPath = value;
       } else {
         title = value;
       }
       index += 1;
+    } else if (arg === '--no-outline') {
+      outlineText = false;
     } else if (arg.startsWith('--font=')) {
       fontPath = arg.slice('--font='.length);
       if (fontPath.length === 0) {
         throw new Error(`--font requires a value\n${USAGE}`);
+      }
+    } else if (arg.startsWith('--mascot=')) {
+      mascotPath = arg.slice('--mascot='.length);
+      if (mascotPath.length === 0) {
+        throw new Error(`--mascot requires a value\n${USAGE}`);
       }
     } else if (arg.startsWith('--title=')) {
       title = arg.slice('--title='.length);
@@ -59,7 +74,7 @@ function parseArgs(argv: string[]): CliOptions {
     throw new Error(`Expected exactly two positional arguments\n${USAGE}`);
   }
 
-  return { clocPath, outputPath, fontPath, title };
+  return { clocPath, outputPath, fontPath, mascotPath, outlineText, title };
 }
 
 async function readClocJson(clocPath: string): Promise<object> {
@@ -82,8 +97,9 @@ async function main(): Promise<void> {
   const svg = await renderBadge({
     clocJson,
     fontPath: options.fontPath,
+    mascotPath: options.mascotPath,
+    outlineText: options.outlineText,
     title: options.title,
-    mascotPath: DEFAULT_MASCOT_PATH,
   });
 
   try {

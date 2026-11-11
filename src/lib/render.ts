@@ -8,11 +8,22 @@ export type RenderBadgeOptions = {
   title?: string;
   fontPath?: string;
   mascotPath?: string;
+  /**
+   * Bake every string to glyph outlines (default). Outlined text renders
+   * identically on any machine because the SVG carries no font dependency.
+   * Set to false for a smaller, selectable, screen-reader-legible badge that
+   * falls back to the viewer's monospace stack.
+   */
+  outlineText?: boolean;
 };
 
 const DEFAULT_FONT_PATH = 'assets/fonts/Monocraft.otf';
 const DEFAULT_MASCOT_PATH = 'assets/LOChy_Draft.png';
 const DEFAULT_TITLE = 'LOC Summary';
+
+/** Only used when outlineText is false — the viewer resolves the stack. */
+const TEXT_FONT_STACK =
+  'Monocraft, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 const PADDING = 24;
 const MASCOT_WIDTH = 140;
@@ -46,8 +57,25 @@ type MascotSize = {
   height: number;
 };
 
+type TextRun = {
+  value: string;
+  x: number;
+  baseline: number;
+  size: number;
+  fill: string;
+};
+
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -142,9 +170,16 @@ function textWidth(font: Font, text: string, size: number): number {
   return font.getAdvanceWidth(text, size);
 }
 
-function textPath(font: Font, text: string, x: number, y: number, size: number, fill: string): string {
-  const data = font.getPath(text, x, y, size).toPathData(2);
-  return `<path d="${data}" fill="${fill}"/>`;
+function textPath(font: Font, run: TextRun): string {
+  const data = font.getPath(run.value, run.x, run.baseline, run.size).toPathData(2);
+  return `<path d="${data}" fill="${run.fill}"/>`;
+}
+
+function textElement(run: TextRun): string {
+  return (
+    `<text x="${run.x}" y="${run.baseline}" font-family="${TEXT_FONT_STACK}" ` +
+    `font-size="${run.size}" fill="${run.fill}">${escapeXml(run.value)}</text>`
+  );
 }
 
 /**
@@ -158,6 +193,7 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
   const title = opts.title ?? DEFAULT_TITLE;
   const fontPath = opts.fontPath ?? DEFAULT_FONT_PATH;
   const mascotPath = opts.mascotPath ?? DEFAULT_MASCOT_PATH;
+  const outlineText = opts.outlineText ?? true;
 
   const font = await loadFont(fontPath);
   const mascotPng = await loadMascot(mascotPath);
@@ -202,10 +238,16 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
   const barX = rightX + nameColumnWidth + 12;
   const countX = barX + BAR_MAX_WIDTH + 10;
 
+  const accessibleName = `${title}: ${totalText} lines of code`;
+  const render = (font: Font, run: TextRun): string =>
+    outlineText ? textPath(font, run) : textElement(run);
+
   const parts: string[] = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" ` +
+      `viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeXml(accessibleName)}">`,
   );
+  parts.push(`<title>${escapeXml(accessibleName)}</title>`);
   parts.push('<defs>');
   parts.push('<linearGradient id="card-gradient" x1="0" y1="0" x2="0" y2="1">');
   parts.push(`<stop offset="0" stop-color="${CARD_GRADIENT_TOP}"/>`);
@@ -218,9 +260,33 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
   parts.push(
     `<image href="data:image/png;base64,${mascotPng.toString('base64')}" x="${mascotX}" y="${mascotY}" width="${MASCOT_WIDTH}" height="${mascotHeight}" preserveAspectRatio="xMidYMid meet" transform="scale(-1,1)"/>`,
   );
-  parts.push(textPath(font, title, rightX, titleBaseline, TITLE_SIZE, INK));
-  parts.push(textPath(font, totalText, rightX, totalBaseline, TOTAL_SIZE, INK));
-  parts.push(textPath(font, 'LOC', rightX + totalWidth + 8, totalBaseline, LABEL_SIZE, MUTED));
+  parts.push(
+    render(font, {
+      value: title,
+      x: rightX,
+      baseline: titleBaseline,
+      size: TITLE_SIZE,
+      fill: INK,
+    }),
+  );
+  parts.push(
+    render(font, {
+      value: totalText,
+      x: rightX,
+      baseline: totalBaseline,
+      size: TOTAL_SIZE,
+      fill: INK,
+    }),
+  );
+  parts.push(
+    render(font, {
+      value: 'LOC',
+      x: rightX + totalWidth + 8,
+      baseline: totalBaseline,
+      size: LABEL_SIZE,
+      fill: MUTED,
+    }),
+  );
 
   rows.forEach((row, index) => {
     const baseline = firstRowBaseline + index * ROW_HEIGHT;
@@ -228,14 +294,30 @@ export async function renderBadge(opts: RenderBadgeOptions): Promise<string> {
       maxCode === 0 ? 0 : Math.max(2, Math.round((BAR_MAX_WIDTH * row.code) / maxCode));
     const barY = baseline - 11;
 
-    parts.push(textPath(font, row.language, nameX, baseline, ROW_SIZE, INK));
+    parts.push(
+      render(font, {
+        value: row.language,
+        x: nameX,
+        baseline,
+        size: ROW_SIZE,
+        fill: INK,
+      }),
+    );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK}"/>`,
     );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${colorFor(row.language)}"/>`,
     );
-    parts.push(textPath(font, formatCount(row.code), countX, baseline, COUNT_SIZE, MUTED));
+    parts.push(
+      render(font, {
+        value: formatCount(row.code),
+        x: countX,
+        baseline,
+        size: COUNT_SIZE,
+        fill: MUTED,
+      }),
+    );
   });
 
   parts.push('</svg>');

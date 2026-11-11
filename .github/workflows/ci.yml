@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build the action bundle
+        run: npm run build
+
+      - name: Bundle is committed and matches src/
+        # node20 actions run the committed bundle/index.js, so a stale bundle
+        # silently ships old code. Fail here instead of in someone else's run.
+        run: git diff --exit-code -- bundle/index.js
+
+      - name: Smoke test the built action
+        run: npm test

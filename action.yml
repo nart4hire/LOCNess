@@ -1,5 +1,8 @@
 name: 'LocNess'
 description: 'Generate a self-contained lines-of-code SVG badge with cloc and LOChy'
+branding:
+  icon: 'bar-chart-2'
+  color: 'green'
 
 inputs:
   path:
@@ -16,6 +19,28 @@ inputs:
     description: 'Path to a .ttf/.otf font file to use instead of the bundled Monocraft font'
     required: false
     default: ''
+
+  mascot:
+    description: >-
+      Path to a .png mascot. Defaults to the bundled LOChy artwork; supply your
+      own image to ship a badge without the Lochy brand assets.
+    required: false
+    default: ''
+
+  outline_text:
+    description: >-
+      'true' bakes every string to glyph outlines (renders identically anywhere,
+      larger file). 'false' emits selectable <text> with a monospace fallback
+      stack and adds <title>/aria-label, which makes the counts machine-readable.
+    required: false
+    default: 'true'
+
+  exclude:
+    description: >-
+      Comma-separated directory names cloc must not count. Defaults skip
+      generated and vendored code so the badge reflects source, not build output.
+    required: false
+    default: 'node_modules,vendor,bundle,build,dist,coverage'
 
   title:
     description: 'Badge title (defaults to $GITHUB_REPOSITORY)'

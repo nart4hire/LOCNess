@@ -19703,7 +19703,7 @@ var require_core = __commonJS({
       return inputs.map((input) => input.trim());
     }
     exports.getMultilineInput = getMultilineInput;
-    function getBooleanInput(name, options) {
+    function getBooleanInput2(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
       const val = getInput2(name, options);
@@ -19714,7 +19714,7 @@ var require_core = __commonJS({
       throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}
 Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
-    exports.getBooleanInput = getBooleanInput;
+    exports.getBooleanInput = getBooleanInput2;
     function setOutput(name, value) {
       const filePath = process.env["GITHUB_OUTPUT"] || "";
       if (filePath) {
@@ -32164,6 +32164,7 @@ function formatCount(n) {
 var DEFAULT_FONT_PATH = "assets/fonts/Monocraft.otf";
 var DEFAULT_MASCOT_PATH = "assets/LOChy_Draft.png";
 var DEFAULT_TITLE = "LOC Summary";
+var TEXT_FONT_STACK = "Monocraft, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 var PADDING = 24;
 var MASCOT_WIDTH = 140;
 var COLUMN_GAP = 24;
@@ -32185,6 +32186,9 @@ var MUTED = TEXT_FILL;
 var BAR_TRACK = "#21262d";
 function describeError(error) {
   return error instanceof Error ? error.message : String(error);
+}
+function escapeXml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 function asRecord(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -32260,14 +32264,18 @@ async function loadMascot(mascotPath) {
 function textWidth(font, text, size) {
   return font.getAdvanceWidth(text, size);
 }
-function textPath(font, text, x, y, size, fill) {
-  const data = font.getPath(text, x, y, size).toPathData(2);
-  return `<path d="${data}" fill="${fill}"/>`;
+function textPath(font, run) {
+  const data = font.getPath(run.value, run.x, run.baseline, run.size).toPathData(2);
+  return `<path d="${data}" fill="${run.fill}"/>`;
+}
+function textElement(run) {
+  return `<text x="${run.x}" y="${run.baseline}" font-family="${TEXT_FONT_STACK}" font-size="${run.size}" fill="${run.fill}">${escapeXml(run.value)}</text>`;
 }
 async function renderBadge(opts) {
   const title = opts.title ?? DEFAULT_TITLE;
   const fontPath = opts.fontPath ?? DEFAULT_FONT_PATH;
   const mascotPath = opts.mascotPath ?? DEFAULT_MASCOT_PATH;
+  const outlineText = opts.outlineText ?? true;
   const font = await loadFont(fontPath);
   const mascotPng = await loadMascot(mascotPath);
   const allRows = parseLanguageRows(opts.clocJson);
@@ -32299,10 +32307,13 @@ async function renderBadge(opts) {
   const nameX = rightX;
   const barX = rightX + nameColumnWidth + 12;
   const countX = barX + BAR_MAX_WIDTH + 10;
+  const accessibleName = `${title}: ${totalText} lines of code`;
+  const render = (font2, run) => outlineText ? textPath(font2, run) : textElement(run);
   const parts = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeXml(accessibleName)}">`
   );
+  parts.push(`<title>${escapeXml(accessibleName)}</title>`);
   parts.push("<defs>");
   parts.push('<linearGradient id="card-gradient" x1="0" y1="0" x2="0" y2="1">');
   parts.push(`<stop offset="0" stop-color="${CARD_GRADIENT_TOP}"/>`);
@@ -32315,21 +32326,61 @@ async function renderBadge(opts) {
   parts.push(
     `<image href="data:image/png;base64,${mascotPng.toString("base64")}" x="${mascotX}" y="${mascotY}" width="${MASCOT_WIDTH}" height="${mascotHeight}" preserveAspectRatio="xMidYMid meet" transform="scale(-1,1)"/>`
   );
-  parts.push(textPath(font, title, rightX, titleBaseline, TITLE_SIZE, INK));
-  parts.push(textPath(font, totalText, rightX, totalBaseline, TOTAL_SIZE, INK));
-  parts.push(textPath(font, "LOC", rightX + totalWidth + 8, totalBaseline, LABEL_SIZE, MUTED));
+  parts.push(
+    render(font, {
+      value: title,
+      x: rightX,
+      baseline: titleBaseline,
+      size: TITLE_SIZE,
+      fill: INK
+    })
+  );
+  parts.push(
+    render(font, {
+      value: totalText,
+      x: rightX,
+      baseline: totalBaseline,
+      size: TOTAL_SIZE,
+      fill: INK
+    })
+  );
+  parts.push(
+    render(font, {
+      value: "LOC",
+      x: rightX + totalWidth + 8,
+      baseline: totalBaseline,
+      size: LABEL_SIZE,
+      fill: MUTED
+    })
+  );
   rows.forEach((row, index) => {
     const baseline = firstRowBaseline + index * ROW_HEIGHT;
     const barWidth = maxCode === 0 ? 0 : Math.max(2, Math.round(BAR_MAX_WIDTH * row.code / maxCode));
     const barY = baseline - 11;
-    parts.push(textPath(font, row.language, nameX, baseline, ROW_SIZE, INK));
+    parts.push(
+      render(font, {
+        value: row.language,
+        x: nameX,
+        baseline,
+        size: ROW_SIZE,
+        fill: INK
+      })
+    );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${BAR_MAX_WIDTH}" height="${BAR_HEIGHT}" rx="4" fill="${BAR_TRACK}"/>`
     );
     parts.push(
       `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${BAR_HEIGHT}" rx="4" fill="${colorFor(row.language)}"/>`
     );
-    parts.push(textPath(font, formatCount(row.code), countX, baseline, COUNT_SIZE, MUTED));
+    parts.push(
+      render(font, {
+        value: formatCount(row.code),
+        x: countX,
+        baseline,
+        size: COUNT_SIZE,
+        fill: MUTED
+      })
+    );
   });
   parts.push("</svg>");
   return `${parts.join("\n")}
@@ -32340,7 +32391,7 @@ async function renderBadge(opts) {
 var ACTION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 var DEFAULT_FONT_PATH2 = path.join(ACTION_ROOT, "assets", "fonts", "Monocraft.otf");
 var DEFAULT_MASCOT_PATH2 = path.join(ACTION_ROOT, "assets", "LOChy_Draft.png");
-var CLOC_INSTALL_COMMAND = "sudo apt-get update && sudo apt-get install -y cloc jq";
+var DEFAULT_EXCLUDE = ["node_modules", "vendor", "bundle", "build", "dist", "coverage"];
 function describeError2(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -32350,13 +32401,28 @@ function clocIsAvailable() {
   });
   return result.status === 0;
 }
-function installCloc() {
-  console.log(`cloc not found on PATH; installing with: ${CLOC_INSTALL_COMMAND}`);
-  const result = spawnSync("sh", ["-c", CLOC_INSTALL_COMMAND], {
+function runInstall(command) {
+  const result = spawnSync("sh", ["-c", command], {
     stdio: ["ignore", "inherit", "inherit"]
   });
-  if (result.error !== void 0) {
-    throw new Error(`cloc install failed: ${result.error.message}`);
+  return result.error === void 0 && result.status === 0;
+}
+function installCloc() {
+  const hasApt = spawnSync("sh", ["-c", "command -v apt-get"], { stdio: "ignore" });
+  if (hasApt.status !== 0) {
+    throw new Error(
+      "cloc is not installed and this runner has no apt-get. Install cloc on the runner (or make it available on PATH) and re-run the action."
+    );
+  }
+  console.log("cloc not found on PATH; installing with apt-get");
+  if (runInstall("sudo apt-get install -y cloc") && clocIsAvailable()) {
+    return;
+  }
+  console.log("direct install failed; refreshing package lists and retrying");
+  if (!runInstall("sudo apt-get update && sudo apt-get install -y cloc") || !clocIsAvailable()) {
+    throw new Error(
+      "cloc is not installed and could not be installed with apt-get. Install cloc on the runner (or make it available on PATH) and re-run the action."
+    );
   }
 }
 async function ensureCloc() {
@@ -32366,14 +32432,23 @@ async function ensureCloc() {
   installCloc();
   if (!clocIsAvailable()) {
     throw new Error(
-      `cloc is not installed and could not be installed with "${CLOC_INSTALL_COMMAND}". Install cloc on the runner (or make it available on PATH) and re-run the action.`
+      "cloc was installed but is still not on PATH. Check the runner image and re-run."
     );
   }
 }
+function excludeDirs() {
+  const raw = core.getInput("exclude").trim();
+  const list = (raw.length > 0 ? raw : DEFAULT_EXCLUDE.join(",")).split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  return list.length > 0 ? list : DEFAULT_EXCLUDE;
+}
 function runCloc(analyzePath, tempDir) {
   const jsonPath = path.join(tempDir, "cloc.json");
+  const args = [analyzePath, "--json", "--quiet", `--exclude-dir=${excludeDirs().join(",")}`];
+  if (fs2.existsSync(path.join(analyzePath, ".git"))) {
+    args.push("--vcs=git");
+  }
   return new Promise((resolve2, reject) => {
-    const child = spawn("cloc", [analyzePath, "--json", "--quiet", `--out=${jsonPath}`], {
+    const child = spawn("cloc", [...args, `--out=${jsonPath}`], {
       stdio: ["ignore", "ignore", "pipe"]
     });
     let stderr = "";
@@ -32424,6 +32499,9 @@ async function main() {
   const outputPath = core.getInput("output") || "dist/docs/loc.svg";
   const fontInput = core.getInput("font").trim();
   const fontPath = fontInput.length > 0 ? fontInput : DEFAULT_FONT_PATH2;
+  const mascotInput = core.getInput("mascot").trim();
+  const mascotPath = mascotInput.length > 0 ? mascotInput : DEFAULT_MASCOT_PATH2;
+  const outlineText = core.getBooleanInput("outline_text");
   const title = optionalTitle();
   await ensureCloc();
   const tempDir = await fs2.promises.mkdtemp(path.join(os.tmpdir(), "lochy-cloc-"));
@@ -32433,7 +32511,8 @@ async function main() {
     const svg = await renderBadge({
       clocJson,
       fontPath,
-      mascotPath: DEFAULT_MASCOT_PATH2,
+      mascotPath,
+      outlineText,
       ...title === void 0 ? {} : { title }
     });
     const outputDir = path.dirname(path.resolve(outputPath));

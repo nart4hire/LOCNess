@@ -1,6 +1,8 @@
 node_modules/
 dist/*
 !dist/docs/
+# tsc output is local-only; the published action runs the committed bundle/
+build/
 
 *.exe
 *.json
