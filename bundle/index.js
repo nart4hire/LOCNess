@@ -32243,15 +32243,15 @@ function colorFor(language) {
 
 // src/lib/format.ts
 function formatCount(n) {
-  if (n >= 1e6) {
+  if (n >= 999500) {
     const millions = Math.round(n / 1e5) / 10;
     const text = Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1);
     return `${text}M`;
   }
-  if (n >= 1e3) {
+  if (n >= 1e4) {
     return `${Math.round(n / 1e3)}k`;
   }
-  return String(n);
+  return String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 // src/lib/render.ts

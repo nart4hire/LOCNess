@@ -28,8 +28,7 @@ for (const row of rows.slice(0, 5)) {
 }
 
 if (failures > 0) {
-  console.error(`\n${failures} colour(s) below ${MIN}:1`);
-  process.exit(1);
+  throw new Error(`${failures} colour(s) below ${MIN}:1`);
 }
 
 console.log(`ok - every colour clears ${MIN}:1 (min ${rows[0]?.ratio.toFixed(2)})`);

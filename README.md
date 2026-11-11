@@ -76,6 +76,10 @@ Hand-written manifests and config (`package.json`, `tsconfig.json`) still count:
 they are authored files, not generated ones. If you would rather they did not,
 `exclude_files` takes any Perl regex over filenames.
 
+Totals under 10,000 print exactly — `1,120`, not `1k` — because that is the
+range a badge actually gets read in. Above that the card switches to whole
+thousands (`12k`) and then to millions (`2.1M`) to keep the layout narrow.
+
 Two more things worth knowing:
 
 - When `path` points at a directory containing `.git`, cloc also runs with
